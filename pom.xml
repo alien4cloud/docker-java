@@ -10,7 +10,7 @@
 	<groupId>com.github.docker-java</groupId>
 	<artifactId>docker-java</artifactId>
 	<packaging>jar</packaging>
-	<version>3.0.8-SNAPSHOT</version>
+	<version>3.0.8-ALIEN-SNAPSHOT</version>
 
 	<name>docker-java</name>
 	<url>https://github.com/docker-java/docker-java</url>
@@ -259,14 +259,14 @@
 	</dependencies>
 
 	<distributionManagement>
-		<snapshotRepository>
-			<id>ossrh</id>
-			<url>https://oss.sonatype.org/content/repositories/snapshots</url>
-		</snapshotRepository>
 		<repository>
-			<id>ossrh</id>
-			<url>https://oss.sonatype.org/service/local/staging/deploy/maven2/</url>
+			<id>repo.opensource.fastconnect.org</id>
+			<url>https://fastconnect.org/maven/content/repositories/opensource</url>
 		</repository>
+		<snapshotRepository>
+			<id>repo.opensource.snapshot.fastconnect.org</id>
+			<url>https://fastconnect.org/maven/content/repositories/opensource-snapshot</url>
+		</snapshotRepository>
 	</distributionManagement>
 
 	<build>

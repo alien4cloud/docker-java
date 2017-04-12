@@ -115,6 +115,8 @@ import io.netty.channel.ChannelInitializer;
 import io.netty.channel.EventLoopGroup;
 import io.netty.channel.epoll.EpollDomainSocketChannel;
 import io.netty.channel.epoll.EpollEventLoopGroup;
+import io.netty.channel.kqueue.KQueueDomainSocketChannel;
+import io.netty.channel.kqueue.KQueueEventLoopGroup;
 import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.channel.socket.DuplexChannel;
 import io.netty.channel.socket.SocketChannel;
@@ -193,7 +195,12 @@ public class NettyDockerCmdExecFactory implements DockerCmdExecFactory {
         String scheme = dockerClientConfig.getDockerHost().getScheme();
 
         if ("unix".equals(scheme)) {
-            nettyInitializer = new UnixDomainSocketInitializer();
+            String osName = System.getProperty("os.name");
+            if (osName.startsWith("Mac")) {
+                nettyInitializer = new KQueueDomainSocketInitializer();
+            } else {
+                nettyInitializer = new UnixDomainSocketInitializer();
+            }
         } else if ("tcp".equals(scheme)) {
             nettyInitializer = new InetSocketInitializer();
         }
@@ -231,14 +238,41 @@ public class NettyDockerCmdExecFactory implements DockerCmdExecFactory {
                 }
             };
 
-            bootstrap.group(epollEventLoopGroup).channelFactory(factory)
-                    .handler(new ChannelInitializer<UnixChannel>() {
-                        @Override
-                        protected void initChannel(final UnixChannel channel) throws Exception {
-                            channel.pipeline().addLast(new HttpClientCodec());
-                        }
-                    });
+            bootstrap.group(epollEventLoopGroup).channelFactory(factory).handler(new ChannelInitializer<UnixChannel>() {
+                @Override
+                protected void initChannel(final UnixChannel channel) throws Exception {
+                    channel.pipeline().addLast(new HttpClientCodec());
+                }
+            });
             return epollEventLoopGroup;
+        }
+
+        @Override
+        public DuplexChannel connect(Bootstrap bootstrap) throws InterruptedException {
+            return (DuplexChannel) bootstrap.connect(new DomainSocketAddress("/var/run/docker.sock")).sync().channel();
+        }
+    }
+
+    private class KQueueDomainSocketInitializer implements NettyInitializer {
+        @Override
+        public EventLoopGroup init(Bootstrap bootstrap, DockerClientConfig dockerClientConfig) {
+
+            EventLoopGroup kQueueEventLoopGroup = new KQueueEventLoopGroup(0, new DefaultThreadFactory(threadPrefix));
+
+            ChannelFactory<KQueueDomainSocketChannel> factory = new ChannelFactory<KQueueDomainSocketChannel>() {
+                @Override
+                public KQueueDomainSocketChannel newChannel() {
+                    return configure(new KQueueDomainSocketChannel());
+                }
+            };
+
+            bootstrap.group(kQueueEventLoopGroup).channelFactory(factory).handler(new ChannelInitializer<UnixChannel>() {
+                @Override
+                protected void initChannel(final UnixChannel channel) throws Exception {
+                    channel.pipeline().addLast(new HttpClientCodec());
+                }
+            });
+            return kQueueEventLoopGroup;
         }
 
         @Override
@@ -265,15 +299,14 @@ public class NettyDockerCmdExecFactory implements DockerCmdExecFactory {
                 }
             };
 
-            bootstrap.group(nioEventLoopGroup).channelFactory(factory)
-                    .handler(new ChannelInitializer<SocketChannel>() {
-                        @Override
-                        protected void initChannel(final SocketChannel channel) throws Exception {
-                            // channel.pipeline().addLast(new
-                            // HttpProxyHandler(proxyAddress));
-                            channel.pipeline().addLast(new HttpClientCodec());
-                        }
-                    });
+            bootstrap.group(nioEventLoopGroup).channelFactory(factory).handler(new ChannelInitializer<SocketChannel>() {
+                @Override
+                protected void initChannel(final SocketChannel channel) throws Exception {
+                    // channel.pipeline().addLast(new
+                    // HttpProxyHandler(proxyAddress));
+                    channel.pipeline().addLast(new HttpClientCodec());
+                }
+            });
 
             return nioEventLoopGroup;
         }
@@ -328,8 +361,7 @@ public class NettyDockerCmdExecFactory implements DockerCmdExecFactory {
     }
 
     protected DockerClientConfig getDockerClientConfig() {
-        checkNotNull(dockerClientConfig,
-                "Factor not initialized, dockerClientConfig not set. You probably forgot to call init()!");
+        checkNotNull(dockerClientConfig, "Factor not initialized, dockerClientConfig not set. You probably forgot to call init()!");
         return dockerClientConfig;
     }
 

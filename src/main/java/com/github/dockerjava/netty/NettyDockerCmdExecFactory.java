@@ -174,6 +174,8 @@ public class NettyDockerCmdExecFactory implements DockerCmdExecFactory {
 
     private NettyInitializer nettyInitializer;
 
+    private WebTarget baseResource;
+
     private ChannelProvider channelProvider = new ChannelProvider() {
         @Override
         public DuplexChannel getChannel() {
@@ -206,6 +208,8 @@ public class NettyDockerCmdExecFactory implements DockerCmdExecFactory {
         }
 
         eventLoopGroup = nettyInitializer.init(bootstrap, dockerClientConfig);
+
+        baseResource = new WebTarget(channelProvider).path(dockerClientConfig.getApiVersion().asWebPathPart());
     }
 
     private DuplexChannel connect() {
@@ -651,6 +655,7 @@ public class NettyDockerCmdExecFactory implements DockerCmdExecFactory {
     }
 
     private WebTarget getBaseResource() {
-        return new WebTarget(channelProvider);
+        checkNotNull(baseResource, "Factory not initialized, baseResource not set. You probably forgot to call init()!");
+        return baseResource;
     }
 }
